@@ -1,0 +1,111 @@
+* why functional data structures
+* why C++
+* prior art
+** okasaki
+** lisp
+** clojure
+** immer
+* problems where they meet
+** structure sharing means nontrivial lifetimes
+** traditionally solved using GC
+** the old GC + C++ problem
+*** why not ref-counting?
+*** why are they incompatible?
+**** "classical" C++ container-style means GC are unnecessary
+***** generational GC as "fuzzy scope bound lifetimes"
+***** does not apply here
+**** traditional GC is global
+***** makes tradeoffs for your whole program
+***** tracing => needs to understand all the pointers
+****** conservative GC => leaks
+***** compacting GC needs to move all your pointers
+****** race condition hell
+****** violates all our assumptions about pointer arithmetic
+***** compare to scoped allocators
+****** localized, targeted
+****** fit for a specific purpose
+******* as a result can be much simpler + faster
+* purpose
+** explore the right abstractions for functional data structures
+** explore the right abstraction for localized GC for C++ (like allocators)
+* design
+** because memory mgmt for functional data structures is hard, must abstract out from data structure
+*** a linked list works (mostly) the same regardless of how you clean up the nodes
+** corollary: functional data structures are not containers
+*** they abdicate responsibility for owning their children
+**** you can't put most resources in them anyway because they need to copy
+*** more like indices for a database
+**** create structure around data that is already stored somewhere
+** data structure must know nothing about memory mgmt
+*** BUT must not preclude memory mgmt from being implemented around them
+*** If we happen to know more about memory mgmt, this may allow further optimizations
+**** if possible, we shouldn't preclude this
+** resembles the mutator + garbage collector view
+** user knows more context than we do
+* must consider many concrete examples to create an appropriate abstraction
+** data structures
+*** cons cell linked list
+*** leftist heap
+*** persistent vector trie (radix trie?)
+**** sparse radix trie vector (I think this is just a hamt with identity for hash)
+*** hash array--mapped trie
+*** btree
+*** red-black tree
+*** rope
+**** "b" rope?
+**** relaxed radix balanced tree
+*** ???
+** memory mgmt
+*** do nothing just leak
+*** shared_ptr
+*** scratch pad (only allocate, then throw everything away at the end)
+*** plug into some other GC
+**** notable examples
+***** guile
+***** jvm
+***** python
+***** lua
+******  Lua uses incremental mark and sweep
+https://www.tutorialspoint.com/lua/lua_garbage_collection.htm
+***** javascripts
+****** wasm?
+*** Something we can build our own localized GC on top of
+**** for example object pools with some trace and collect functions we can choose to call
+* data structure: storage vs function
+** storage needs to know nothing about memory mgmt except the size/type of handles
+** (almost) all functions need to know how to look up handles
+** some functions need to know how to allocate
+** keep inner nodes minimal
+* functional semantics for containers
+** memory mgmt has to do what it has to do
+** object doesn't exist until construction is done
+*** if we don't show it to anyone else yet we can do anything we want
+**** as long as we don't race with memory mgmt
+** construction can get a mutable handle
+*** building by modifying can be more optimal in some cases
+*** in place algorithms during construction
+** once an object is constructed, it is immutable
+*** all handles here must be like const ref
+** enforce this in the type system like iterator vs const_iterator
+** transients?
+* handles
+** name
+*** unlike ptr may be meaningless without context (eg index into a vector)
+*** reference is taken (but this is what it would be called in eg java)
+*** key is vague
+** should expose:
+*** mutable_handle
+*** handle (const by default)
+*** erased_handle and casting
+**** pvec must hold two different kinds of nodes, but can deduce which is which by size
+*** some sort of variant handle
+**** hamt can't deduce which is which
+**** would want to use something like tagged ptr for RTTI but data structures don't know how a handle is actually stored
+**** GC can use (1) separate regions for different types (2) headers that say the type
+** suggests a concept hierarchy we can use to define the different data structures
+** what about the other kind of persistence?
+** functional guarantees make moving gc easier
+** compression and variable size objects?
+* data structures
+** keep nodes as small as possible
+** do not repeat information in child nodes that can be stored in the head
