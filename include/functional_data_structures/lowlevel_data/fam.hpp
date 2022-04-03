@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <ranges>
 #include <type_traits>
 
 namespace functional_data_structures { namespace lowlevel_data {
@@ -14,11 +15,6 @@ namespace functional_data_structures { namespace lowlevel_data {
 #  if true
     namespace here = ::functional_data_structures::lowlevel_data::fam;
     namespace rng  = std::ranges;
-
-    struct famsize {
-      std::size_t value;
-      constexpr   operator std::size_t() NOEX(value)
-    };
 
     template<class T>
     struct fam_storage {
@@ -38,6 +34,11 @@ namespace functional_data_structures { namespace lowlevel_data {
 #    endif
     };
 
+    struct famsize {
+      std::size_t size;
+      constexpr   operator std::size_t() NOEX(size)
+    };
+
     template<class T>
     struct fam : fam_storage<T> {
       constexpr fam() = delete;
@@ -47,7 +48,7 @@ namespace functional_data_structures { namespace lowlevel_data {
           requires std::is_trivially_default_constructible_v<T> {}
       constexpr fam(famsize n)
           NOEX(std::uninitialized_default_construct_n(this->get(), n))
-      constexpr fam(rng::input_range auto src) NOEX(
+      constexpr fam(rng::input_range auto const& src) NOEX(
           rng::uninitialized_copy(src, rng::subrange(this->get(), nullptr)))
       constexpr fam(auto scribble_my_memory)
           NOEX(scribble_my_memory(this->get())) // 🤷
@@ -81,6 +82,10 @@ namespace functional_data_structures { namespace lowlevel_data {
     template<class T>
     constexpr std::size_t bytesize_for_n(std::size_t n)
         NOEX(dec_nowrap(sizeof(T)) + n * sizeof(fam_elt_t<T>))
+
+    template<class T>
+    constexpr std::size_t bytesize_for_args(auto&&... args)
+        NOEX(bytesize_for_n(T::count_for_args(FWD(args)...)))
 
     constexpr auto fam_begin(auto& x) NOEXDECL(fam_of(x))
     constexpr auto fam_end(auto& x) NOEXDECL(fam_of(x) + fam_count_of(x))
@@ -143,20 +148,35 @@ namespace functional_data_structures { namespace lowlevel_data {
                               return ::std::declval<class_name>();           \
                             }())> {}
 
-    template<class T>
-    FAM(struct fam_mac_test, {
-      std::size_t size;
-      fam<T>      ns;
+    template<class T, std::size_t N>
+    using c_array = T[N];
 
-      constexpr static std::size_t count_for_args(std::size_t n) NOEX(n)
-      constexpr T*                 fam_storage() NOEX(ns)
+    template<class T, class size_type = std::size_t>
+    class array_impl {
+      size_type size;
+      fam<T>    data;
+
+     public:
+      constexpr array_impl(famsize n) : size{n}, data{n} {}
+
+      constexpr array_impl(rng::sized_range auto const&& r)
+          : size{rng::size(r)}, data{FWD(r)} {}
+
+      constexpr static std::size_t count_for_args(famsize n) NOEX(n)
+      constexpr T*                 fam_storage() NOEX(size)
       constexpr std::size_t        fam_count() NOEX(size)
-    });
+
+      constexpr T&       operator[](std::size_t n) NOEX(data[n])
+      constexpr T const& operator[](std::size_t n) const NOEX(data[n])
+    };
+
+    template<class T, class size_type = std::size_t>
+    struct array : fam_destroy_wrapper<array_impl<T, size_type>> {};
 
     template<class T>
     T* famnew(auto&&... args) {
-      auto const famcount = T::count_for_args(args...);
-      auto       buf      = std::make_unique<std::byte[]>(famcount);
+      auto const bytesize = bytesize_for_args<T>(args...);
+      auto       buf      = std::make_unique<std::byte[]>(bytesize);
       T* const   obj      = new(buf.get()) T(FWD(args)...);
       buf.release();
       return obj;
