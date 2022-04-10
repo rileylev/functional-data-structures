@@ -44,9 +44,9 @@ namespace functional_data_structures { namespace lowlevel_data {
       constexpr fam() = delete;
       constexpr fam() requires std::is_trivially_default_constructible_v<T>
       = default;
-      constexpr fam(famsize) //
+      constexpr fam(std::size_t) //
           requires std::is_trivially_default_constructible_v<T> {}
-      constexpr fam(famsize n)
+      constexpr fam(std::size_t n)
           NOEX(std::uninitialized_default_construct_n(this->get(), n))
       constexpr fam(rng::input_range auto const& src) NOEX(
           rng::uninitialized_copy(src, rng::subrange(this->get(), nullptr)))
@@ -54,22 +54,20 @@ namespace functional_data_structures { namespace lowlevel_data {
           NOEX(scribble_my_memory(this->get())) // 🤷
     };
 
-    namespace tag {
-      struct fam_storage_of {};
-      struct fam_count_of {};
-    } // namespace tag
+#    define TI_DECLARE_(args, name)                                       \
+      namespace tag {                                                     \
+        struct name {};                                                   \
+      }                                                                   \
+      inline constexpr auto name = [](auto&&... args)                     \
+          NOEXDECL(tag_invoke(tag::name{}, FWD(args)...))
+#    define TI_DECLARE(name) TI_DECLARE_(GENSYM(args), name);
 
+    TI_DECLARE(fam_storage_of)
     constexpr auto tag_invoke(tag::fam_storage_of, auto&& x)
         NOEXDECL(FWD(x).fam_storage())
-    inline constexpr auto fam_storage_of =
-        [](auto&& x) NOEXDECL(tag_invoke(tag::fam_storage_of{}, FWD(x)));
-    inline constexpr auto fam_of =
-        [](auto&& x) NOEXDECL(fam_storage_of(FWD(x)).get());
-
+    TI_DECLARE(fam_count_of)
     constexpr auto tag_invoke(tag::fam_count_of, auto&& x)
         NOEXDECL(FWD(x).fam_count())
-    inline constexpr auto fam_count_of =
-        [](auto&& x) NOEXDECL(tag_invoke(tag::fam_count_of{}, FWD(x)));
 
     template<class T>
     using fam_elt_t = decltype(fam_of(std::declval<T>())[0]);
@@ -158,13 +156,16 @@ namespace functional_data_structures { namespace lowlevel_data {
 
      public:
       constexpr array_impl(famsize n) : size{n}, data{n} {}
+      constexpr static std::size_t count_for_args(famsize n) NOEX(n)
 
       constexpr array_impl(rng::sized_range auto const&& r)
           : size{rng::size(r)}, data{FWD(r)} {}
+      constexpr static std::size_t
+          count_for_args(rng::sized_range auto const&& r)
+              NOEX(std::size(FWD(r)))
 
-      constexpr static std::size_t count_for_args(famsize n) NOEX(n)
-      constexpr T*                 fam_storage() NOEX(size)
-      constexpr std::size_t        fam_count() NOEX(size)
+      constexpr T*          fam_storage() NOEX(size)
+      constexpr std::size_t fam_count() NOEX(size)
 
       constexpr T&       operator[](std::size_t n) NOEX(data[n])
       constexpr T const& operator[](std::size_t n) const NOEX(data[n])
