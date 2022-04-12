@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <ranges>
+#include <span>
 #include <type_traits>
 
 namespace functional_data_structures { namespace lowlevel_data {
@@ -163,6 +164,10 @@ namespace functional_data_structures { namespace lowlevel_data {
       constexpr static std::size_t
           count_for_args(rng::sized_range auto const&& r)
               NOEX(std::size(FWD(r)))
+
+      template<std::size_t N>
+      constexpr array_impl(c_array<T, N>&& src)
+          : array_impl(std::span{std::begin(src), N}) {}
 
       constexpr T*          fam_storage() NOEX(size)
       constexpr std::size_t fam_count() NOEX(size)
