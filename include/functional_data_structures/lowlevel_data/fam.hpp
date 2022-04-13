@@ -152,11 +152,11 @@ namespace functional_data_structures { namespace lowlevel_data {
 
     template<class T, class size_type = std::size_t>
     class array_impl {
-      size_type size;
+      size_type count_;
       fam<T>    data;
 
      public:
-      constexpr array_impl(famsize n) : size{n}, data{n} {}
+      constexpr array_impl(famsize n) : count_{n}, data{n} {}
       constexpr static std::size_t count_for_args(famsize n) NOEX(n)
 
       constexpr array_impl(rng::sized_range auto const&& r)
@@ -169,8 +169,9 @@ namespace functional_data_structures { namespace lowlevel_data {
       constexpr array_impl(c_array<T, N>&& src)
           : array_impl(std::span{std::begin(src), N}) {}
 
-      constexpr T*          fam_storage() NOEX(size)
-      constexpr std::size_t fam_count() NOEX(size)
+      constexpr T*          fam_storage() NOEX(data)
+      constexpr std::size_t fam_count() NOEX(count_)
+      constexpr auto        size() NOEXDECL(fam_count())
 
       constexpr T&       operator[](std::size_t n) NOEX(data[n])
       constexpr T const& operator[](std::size_t n) const NOEX(data[n])
