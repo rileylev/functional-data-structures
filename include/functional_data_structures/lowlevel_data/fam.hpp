@@ -160,7 +160,7 @@ namespace functional_data_structures { namespace lowlevel_data {
       constexpr static std::size_t count_for_args(famsize n) NOEX(n)
 
       constexpr array_impl(rng::sized_range auto const&& r)
-          : size{rng::size(r)}, data{FWD(r)} {}
+          : count_{rng::size(r)}, data{FWD(r)} {}
       constexpr static std::size_t
           count_for_args(rng::sized_range auto const&& r)
               NOEX(std::size(FWD(r)))
